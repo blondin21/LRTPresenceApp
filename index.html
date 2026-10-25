@@ -62,6 +62,13 @@ nav button{text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-si
 h2{text-transform:uppercase;letter-spacing:.05em;font-size:13px;color:var(--ac)}
 .btn{font-weight:600}
 .gt b{font-size:17px;color:var(--tx)}
+.tw{overflow-x:auto;margin-bottom:6px}
+.tb{width:100%;border-collapse:collapse;font-size:14px}
+.tb th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);text-align:left;padding:6px;border-bottom:2px solid var(--bd);white-space:nowrap}
+.tb td{padding:8px 6px;border-bottom:1px solid var(--bd)}
+.tb .nw{white-space:nowrap}
+.tb .num{text-align:right;white-space:nowrap}
+.tb tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--bd)}
 </style>
 </head>
 <body>
@@ -153,7 +160,7 @@ function cur(){if(!G(sel.gid))sel.gid=D.groups.length?D.groups[0].id:null;return
 function key(g,date,slot){return g.id+"|"+fmt(date)+"|"+slot.id}
 function setS(k,id,s){var d=D.att[k]||(D.att[k]={});if(d[id]===s)delete d[id];else d[id]=s;saveA(k);render()}
 function allP(k){var g=cur(),d=D.att[k]||(D.att[k]={});g.members.forEach(function(m){d[m.id]="P"});saveA(k);render()}
-var opn={},ren=null;
+var opn={},ren=null,bt="pers";
 function tog(id){opn[id]=!opn[id];render()}
 function expAll(v){D.groups.forEach(function(g){opn[g.id]=v});render()}
 function startRen(id){ren=id;render()}
@@ -177,6 +184,24 @@ function delM(gid,mid){if(pend!==mid){pend=mid;render();return}pend=null;var g=G
 function sessions(g){return Object.keys(D.att).filter(function(k){return k.indexOf(g.id+"|")===0}).sort()}
 function stats(g,id){var p=0,a=0;sessions(g).forEach(function(k){var s=D.att[k][id];if(s==="P")p++;else if(s==="A")a++;});
  var t=p+a;return{p:p,a:a,pct:t?Math.round(p/t*100):0}}
+function pc(p,t){return t?Math.round(p/t*100):0}
+function sessStats(g,k){var d=D.att[k]||{},p=0,a=0;g.members.forEach(function(m){if(d[m.id]==="P")p++;else if(d[m.id]==="A")a++});return{p:p,a:a,t:p+a,pct:pc(p,p+a)}}
+function tabPers(g){if(!g.members.length)return '<span class="mut">Aucun licencié dans ce groupe.</span>';
+ var tp=0,ta=0;
+ var rows=g.members.map(function(m){var x=stats(g,m.id);tp+=x.p;ta+=x.a;return '<tr><td>'+esc(m.name)+'</td><td class="num">'+x.p+'</td><td class="num">'+x.a+'</td><td class="num"><b>'+x.pct+' %</b></td></tr>'}).join("");
+ return '<div class="tw"><table class="tb"><thead><tr><th>Licencié</th><th class="num">Présent</th><th class="num">Absent</th><th class="num">Taux</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td>Ensemble</td><td class="num">'+tp+'</td><td class="num">'+ta+'</td><td class="num">'+pc(tp,tp+ta)+' %</td></tr></tfoot></table></div>'}
+function tabSlots(g){var ks=sessions(g).filter(function(k){return sessStats(g,k).t>0});
+ if(!ks.length)return '<span class="mut">Aucune séance pointée pour ce groupe.</span>';
+ var by={};ks.forEach(function(k){var id=k.split("|")[2];(by[id]=by[id]||[]).push(k)});
+ var ids=g.slots.map(function(s){return s.id}).filter(function(id){return by[id]});
+ Object.keys(by).forEach(function(id){if(ids.indexOf(id)<0)ids.push(id)});
+ var r1=ids.map(function(id){var sl=slotOf(g,id),p=0,a=0;by[id].forEach(function(k){var x=sessStats(g,k);p+=x.p;a+=x.a});
+  var avg=(Math.round(p/by[id].length*10)/10).toString().replace(".",",");
+  return '<tr><td class="nw">'+(sl?DAYS[sl.day].slice(0,3)+" "+sl.start+"–"+sl.end:"Créneau supprimé")+'</td><td class="num">'+by[id].length+'</td><td class="num">'+avg+'</td><td class="num"><b>'+pc(p,p+a)+' %</b></td></tr>'}).join("");
+ var r2=ks.slice().sort().reverse().map(function(k){var q=k.split("|"),sl=slotOf(g,q[2]),x=sessStats(g,k),d=parse(q[1]);
+  return '<tr><td class="nw">'+DAYS[(d.getDay()+6)%7].slice(0,3)+" "+dm(d)+" "+(sl?sl.start:"")+'</td><td class="num">'+x.p+'</td><td class="num">'+x.a+'</td><td class="num"><b>'+x.pct+' %</b></td></tr>'}).join("");
+ return '<h2>Récapitulatif par créneau</h2><div class="tw"><table class="tb"><thead><tr><th>Créneau</th><th class="num">Séances</th><th class="num">Moy. prés.</th><th class="num">Taux</th></tr></thead><tbody>'+r1+'</tbody></table></div>'+
+  '<h2 style="margin-top:16px">Détail des séances</h2><div class="tw"><table class="tb"><thead><tr><th>Séance</th><th class="num">Prés.</th><th class="num">Abs.</th><th class="num">Taux</th></tr></thead><tbody>'+r2+'</tbody></table></div>'}
 function slotOf(g,sid){return g.slots.filter(function(s){return s.id===sid})[0]}
 function label(g,k){var p=k.split("|"),s=slotOf(g,p[2]);return p[1]+(s?" "+s.start:"")}
 function csv(){var g=cur(),ks=sessions(g),L=[["Nom"].concat(ks.map(function(k){return label(g,k)})).concat(["Présences","Absences","Taux %"]).join(";")];
@@ -224,10 +249,9 @@ function render(){
  h+=gsel();
  if(tab==="bilan"){
   var n=sessions(g).length;
-  h+='<div class="card"><button class="btn" onclick="csv()">Exporter en CSV</button> <span class="mut">'+n+" séance(s) pointée(s)</span></div><div class=\"card\">";
-  h+=g.members.length?g.members.map(function(m){var s=stats(g,m.id);
-   return '<div class="m"><div class="n">'+esc(m.name)+'<div class="mut">'+s.p+" présent(s) · "+s.a+' absent(s)</div><div class="bar"><i style="width:'+s.pct+'%"></i></div></div><b>'+s.pct+" %</b></div>"}).join(""):'<span class="mut">Aucun licencié dans ce groupe.</span>';
-  v.innerHTML=h+"</div>";return}
+  h+='<div class="card"><button class="btn" onclick="csv()">Exporter en CSV</button> <span class="mut">'+n+" séance(s) pointée(s)</span></div>";
+  h+='<div class="chips"><button class="chip'+(bt==="pers"?" on":"")+'" onclick="bt=\'pers\';render()">Par personne</button><button class="chip'+(bt==="slot"?" on":"")+'" onclick="bt=\'slot\';render()">Par créneau</button></div>';
+  v.innerHTML=h+'<div class="card">'+(bt==="slot"?tabSlots(g):tabPers(g))+"</div>";return}
  var w=parse(sel.wk),ds=[];
  g.slots.forEach(function(s){if(ds.indexOf(s.day)<0)ds.push(s.day)});ds.sort();
  if(sel.day!==null&&ds.indexOf(sel.day)<0)sel.day=null;
