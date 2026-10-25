@@ -41,6 +41,8 @@ input,textarea,select{width:100%;padding:10px;border:1px solid var(--bd);border-
 .bar i{display:block;height:100%;background:var(--ok)}
 .x{background:none;border:0;color:var(--ko);font-size:24px;line-height:1;padding:6px 14px;cursor:pointer;flex:none;width:auto}
 .wk{text-align:center;font-weight:600}
+.chev{background:none;border:0;color:var(--tx);font-size:18px;padding:6px 8px;cursor:pointer}
+.gt{cursor:pointer;overflow-wrap:anywhere}
 .st{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-6px 0 10px}
 .st .btn{padding:4px 10px;font-size:13px}
 .err{color:var(--ko);font-size:14px;margin:0 0 10px}
@@ -53,15 +55,23 @@ input,textarea,select{width:100%;padding:10px;border:1px solid var(--bd);border-
 <nav id="nav"></nav>
 <div id="v"></div>
 </main>
+<noscript><p style="padding:16px">JavaScript est désactivé : l’application ne peut pas fonctionner.</p></noscript>
 <script>
-/* ====== À RENSEIGNER (Supabase > Project Settings > API) ====== */
-var CFG={url:"https://imzrguruqcuublpxoall.supabase.co",key:"sb_publishable_5K8OxsORXu0urn08VKVQBg_X1GMO1Sw"};
-/* =============================================================== */
+window.onerror=function(m,src,l){var v=document.getElementById("v");if(v)v.innerHTML='<div class="card"><h2>Erreur dans la page</h2><p>'+String(m).replace(/</g,"&lt;")+" (ligne "+l+')</p></div>'};
+</script>
+<script>
+/* ====== À RENSEIGNER (Supabase > Project Settings > API) ======
+   Remplacez uniquement le texte entre les guillemets, sans toucher aux guillemets ni à la virgule. */
+   var CFG={url:"https://imzrguruqcuublpxoall.supabase.co",key:"sb_publishable_5K8OxsORXu0urn08VKVQBg_X1GMO1Sw"};
+/* ============================================================== */
+</script>
+<script>
 
 var AKEY="presences-auth",DAYS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"],MOIS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 var D={groups:[],att:{}},tab="appel",pend=null,AUTH=null,loading=false,wait=0,ver=0,chain=Promise.resolve(),errMsg="",loginMsg="",refreshing=null;
 try{AUTH=JSON.parse(localStorage.getItem(AKEY))}catch(e){}
-function configured(){return CFG.url.indexOf("VOTRE")<0&&CFG.key.indexOf("VOTRE")<0}
+var CFGOK=typeof CFG!=="undefined";
+function configured(){return CFGOK&&CFG.url.indexOf("VOTRE")<0&&CFG.key.indexOf("VOTRE")<0}
 function enc(s){return encodeURIComponent(s)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function uid(){return Math.random().toString(36).slice(2,9)}
@@ -127,11 +137,15 @@ function cur(){if(!G(sel.gid))sel.gid=D.groups.length?D.groups[0].id:null;return
 function key(g,date,slot){return g.id+"|"+fmt(date)+"|"+slot.id}
 function setS(k,id,s){var d=D.att[k]||(D.att[k]={});if(d[id]===s)delete d[id];else d[id]=s;saveA(k);render()}
 function allP(k){var g=cur(),d=D.att[k]||(D.att[k]={});g.members.forEach(function(m){d[m.id]="P"});saveA(k);render()}
+var opn={},ren=null;
+function tog(id){opn[id]=!opn[id];render()}
+function expAll(v){D.groups.forEach(function(g){opn[g.id]=v});render()}
+function startRen(id){ren=id;render()}
 function pick(o){for(var k in o)sel[k]=o[k];render()}
 function shiftWk(n){pick({wk:fmt(addD(parse(sel.wk),7*n)),day:null,slot:null})}
 function goDate(v){if(v)pick({wk:fmt(mon(parse(v))),day:null,slot:null})}
-function addG(){var n=document.getElementById("gname").value.trim();if(!n)return;var g={id:uid(),name:n,slots:[],members:[]};D.groups.push(g);D.groups.sort(byName);sel.gid=g.id;saveG(g.id);render()}
-function renG(id,v){G(id).name=v.trim()||G(id).name;D.groups.sort(byName);saveG(id);render()}
+function addG(){var n=document.getElementById("gname").value.trim();if(!n)return;var g={id:uid(),name:n,slots:[],members:[]};D.groups.push(g);opn[g.id]=true;D.groups.sort(byName);sel.gid=g.id;saveG(g.id);render()}
+function renG(id,v){G(id).name=v.trim()||G(id).name;ren=null;D.groups.sort(byName);saveG(id);render()}
 function delG(id){if(pend!==id){pend=id;render();return}pend=null;
  D.groups=D.groups.filter(function(g){return g.id!==id});for(var k in D.att)if(k.indexOf(id+"|")===0)delete D.att[k];
  enq(function(){return api("DELETE","att?gid=eq."+enc(id))});enq(function(){return api("DELETE","groups?id=eq."+enc(id))});render()}
@@ -161,6 +175,7 @@ function stat(){var s=document.getElementById("st");if(!s)return;
 function render(){
  stat();
  var v=document.getElementById("v"),nav=document.getElementById("nav"),h="";
+ if(!CFGOK){nav.innerHTML="";v.innerHTML='<div class="card"><h2>Configuration illisible</h2><p class="mut">Le bloc CFG en haut du fichier est mal écrit (guillemet ou virgule effacée en collant l’adresse ou la clé). Remettez la forme  url:"…",  key:"…"  et rechargez.</p></div>';return}
  if(!configured()){nav.innerHTML="";v.innerHTML='<div class="card"><h2>Configuration requise</h2><p class="mut">Renseignez l’adresse du projet Supabase et la clé publique en haut du script (variable CFG), puis rechargez la page.</p></div>';return}
  if(!AUTH){nav.innerHTML="";
   v.innerHTML='<div class="card"><h2>Connexion</h2><div class="row"><input id="lemail" type="email" autocomplete="username" placeholder="Adresse e-mail"></div><div class="row"><input id="lpwd" type="password" autocomplete="current-password" placeholder="Mot de passe" onkeydown="if(event.key===\'Enter\')doLogin()"></div>'+
@@ -172,9 +187,13 @@ function render(){
  var g=cur();
  if(tab==="groupes"){
   h+='<div class="card"><h2>Nouveau groupe</h2><div class="row"><input id="gname" placeholder="Ex. : U13, Adultes loisir…"><button class="btn sm" onclick="addG()">Créer</button></div></div>';
+  if(D.groups.length>1)h+='<div class="row"><button class="btn g" onclick="expAll(true)">Tout déplier</button><button class="btn g" onclick="expAll(false)">Tout replier</button></div>';
   D.groups.forEach(function(g){
-   h+='<div class="card"><div class="row"><input value="'+esc(g.name)+'" onchange="renG(\''+g.id+'\',this.value)">'+(pend===g.id?'<button class="btn sm" style="background:var(--ko)" onclick="delG(\''+g.id+'\')">Supprimer ?</button><button class="btn g sm" onclick="pend=null;render()">Annuler</button>':'<button class="x" onclick="delG(\''+g.id+'\')" aria-label="Supprimer le groupe">×</button>')+'</div>';
-   h+='<h2>Créneaux hebdomadaires</h2>';
+   h+='<div class="card"><div class="row" style="margin-bottom:0">'+(ren===g.id?
+    '<input id="rn'+g.id+'" value="'+esc(g.name)+'" onkeydown="if(event.key===\'Enter\')renG(\''+g.id+'\',this.value);if(event.key===\'Escape\'){ren=null;render()}"><button class="btn sm" onclick="renG(\''+g.id+'\',document.getElementById(\'rn'+g.id+'\').value)">OK</button><button class="btn g sm" onclick="ren=null;render()">Annuler</button>':
+    '<button class="chev sm" onclick="tog(\''+g.id+'\')" aria-label="Déplier ou replier">'+(opn[g.id]?"▾":"▸")+'</button><div class="gt" onclick="tog(\''+g.id+'\')"><b>'+esc(g.name)+'</b><div class="mut">'+g.members.length+" licencié(s) · "+(g.slots.length?g.slots.map(function(s){return DAYS[s.day].slice(0,3)+" "+s.start}).join(", "):"aucun créneau")+'</div></div><button class="btn g sm" onclick="startRen(\''+g.id+'\')">Renommer</button>')+(pend===g.id?'<button class="btn sm" style="background:var(--ko)" onclick="delG(\''+g.id+'\')">Supprimer ?</button><button class="btn g sm" onclick="pend=null;render()">Annuler</button>':'<button class="x" onclick="delG(\''+g.id+'\')" aria-label="Supprimer le groupe">×</button>')+'</div>';
+   if(opn[g.id]){
+   h+='<h2 style="margin-top:12px">Créneaux hebdomadaires</h2>';
    h+=g.slots.length?"":'<p class="mut">Aucun créneau.</p>';
    g.slots.forEach(function(s){
     h+='<div class="row"><select onchange="updSlot(\''+g.id+'\',\''+s.id+'\',\'day\',this.value)">'+DAYS.map(function(n,i){return '<option value="'+i+'"'+(i===s.day?" selected":"")+">"+n+"</option>"}).join("")+"</select>"+
@@ -182,8 +201,9 @@ function render(){
    h+='<p><button class="btn g" onclick="addSlot(\''+g.id+'\')">+ Créneau</button></p><p class="mut">Ces créneaux se répètent automatiquement chaque semaine de l’année.</p>';
    h+='<h2>Licenciés ('+g.members.length+')</h2><textarea id="b'+g.id+'" rows="3" placeholder="Un nom par ligne (vous pouvez coller une liste)"></textarea><p><button class="btn" onclick="addM(\''+g.id+'\')">Ajouter</button></p>';
    g.members.forEach(function(m){h+='<div class="m"><span class="n">'+esc(m.name)+'</span>'+(pend===m.id?'<button class="btn sm" style="background:var(--ko)" onclick="delM(\''+g.id+'\',\''+m.id+'\')">Supprimer ?</button><button class="btn g sm" onclick="pend=null;render()">Annuler</button>':'<button class="x" onclick="delM(\''+g.id+'\',\''+m.id+'\')" aria-label="Supprimer">×</button>')+'</div>'});
+   }
    h+="</div>"});
-  v.innerHTML=h;return}
+  v.innerHTML=h;if(ren){var re=document.getElementById("rn"+ren);if(re){re.focus();re.select()}}return}
  if(!g){v.innerHTML=h+'<div class="card">Créez d’abord un groupe dans l’onglet « Groupes ».</div>';return}
  h+=gsel();
  if(tab==="bilan"){
