@@ -85,7 +85,10 @@ window.onerror=function(m,src,l){var v=document.getElementById("v");if(v)v.inner
 <script>
 /* ====== À RENSEIGNER (Supabase > Project Settings > API) ======
    Remplacez uniquement le texte entre les guillemets, sans toucher aux guillemets ni à la virgule. */
-   var CFG={url:"https://imzrguruqcuublpxoall.supabase.co",key:"sb_publishable_5K8OxsORXu0urn08VKVQBg_X1GMO1Sw"};
+var CFG={
+  url:"https://VOTRE-PROJET.supabase.co",
+  key:"VOTRE-CLE-ANON-OU-PUBLISHABLE"
+};
 /* ============================================================== */
 </script>
 <script>
@@ -118,7 +121,7 @@ function token(){
  if(!refreshing)refreshing=authCall("refresh_token",{refresh_token:AUTH.refresh}).then(function(j){saveAuth(toAuth(j));refreshing=null;return AUTH.access},
   function(e){refreshing=null;if(e.status>=400&&e.status<500)logout(true);throw e});
  return refreshing}
-function logout(expired){saveAuth(null);D={groups:[],att:{}};loading=false;errMsg="";loginMsg=expired?"Session expirée : reconnectez-vous.":"";render()}
+function logout(expired){saveAuth(null);isAdm=false;D={groups:[],att:{}};loading=false;errMsg="";loginMsg=expired?"Session expirée : reconnectez-vous.":"";render()}
 function doLogin(){var e=document.getElementById("lemail").value.trim(),p=document.getElementById("lpwd").value;if(!e||!p)return;
  loginMsg="Connexion…";render();
  authCall("password",{email:e,password:p}).then(function(j){saveAuth(toAuth(j));loginMsg="";loading=true;render();load()},
@@ -134,11 +137,12 @@ function api(method,path,body,prefer){return token().then(function(t){
 function fetchAll(path,off,acc){off=off||0;acc=acc||[];
  return api("GET",path+"&limit=1000&offset="+off).then(function(rows){acc=acc.concat(rows||[]);return rows&&rows.length===1000?fetchAll(path,off+1000,acc):acc})}
 function msg(e){if(!e||!e.status)return"Réseau indisponible : la dernière modification n’est pas enregistrée.";
+ if(e.status===404)return"Base non à jour : exécutez le nouveau script supabase-setup.sql dans Supabase.";
  if(e.status===401)return"Session expirée.";if(e.status===403)return"Accès refusé : vérifiez les règles de sécurité (script SQL).";
  return"Erreur "+e.status+" : modification non enregistrée."}
 function byName(a,b){return a.name.localeCompare(b.name,"fr")}
 function load(){var v0=ver;
- return Promise.all([fetchAll("groups?select=id,data&order=id.asc"),fetchAll("att?select=k,m&order=k.asc")]).then(function(r){
+ return Promise.all([fetchAll("groups?select=id,data&order=id.asc"),fetchAll("att?select=k,m&order=k.asc"),api("GET","admins?select=email")]).then(function(r){isAdm=!!(r[2]&&r[2].length);
   loading=false;
   if(ver!==v0||wait)return;
   D.groups=r[0].map(function(x){return x.data}).sort(byName);
@@ -160,7 +164,7 @@ function cur(){if(!G(sel.gid))sel.gid=D.groups.length?D.groups[0].id:null;return
 function key(g,date,slot){return g.id+"|"+fmt(date)+"|"+slot.id}
 function setS(k,id,s){var d=D.att[k]||(D.att[k]={});if(d[id]===s)delete d[id];else d[id]=s;saveA(k);render()}
 function allP(k){var g=cur(),d=D.att[k]||(D.att[k]={});g.members.forEach(function(m){d[m.id]="P"});saveA(k);render()}
-var opn={},ren=null,bt="pers";
+var opn={},ren=null,bt="pers",isAdm=false;
 function tog(id){opn[id]=!opn[id];render()}
 function expAll(v){D.groups.forEach(function(g){opn[g.id]=v});render()}
 function startRen(id){ren=id;render()}
@@ -212,7 +216,7 @@ function gsel(){return '<div class="card"><select onchange="pick({gid:this.value
 
 /* ---------- Affichage ---------- */
 function stat(){var s=document.getElementById("st");if(!s)return;
- s.innerHTML=AUTH?'<span class="mut">Données partagées · '+(wait?"synchronisation…":"à jour")+'</span><button class="btn g" onclick="logout()">Se déconnecter</button>':""}
+ s.innerHTML=AUTH?'<span class="mut">Données partagées · '+(wait?"synchronisation…":"à jour")+(isAdm?" · administrateur":"")+'</span><button class="btn g" onclick="logout()">Se déconnecter</button>':""}
 function render(){
  stat();
  var v=document.getElementById("v"),nav=document.getElementById("nav"),h="";
@@ -221,7 +225,8 @@ function render(){
  if(!AUTH){nav.innerHTML="";
   v.innerHTML='<div class="card"><h2>Connexion</h2><div class="row"><input id="lemail" type="email" autocomplete="username" placeholder="Adresse e-mail"></div><div class="row"><input id="lpwd" type="password" autocomplete="current-password" placeholder="Mot de passe" onkeydown="if(event.key===\'Enter\')doLogin()"></div>'+
   (loginMsg?'<p class="err">'+esc(loginMsg)+"</p>":"")+'<button class="btn" onclick="doLogin()">Se connecter</button></div>';return}
- nav.innerHTML=[["appel","Appel"],["groupes","Groupes"],["bilan","Bilan"]].map(function(t){
+ if(!isAdm)tab="appel";
+ nav.innerHTML=!isAdm?"":[["appel","Appel"],["groupes","Groupes"],["bilan","Bilan"]].map(function(t){
   return '<button class="'+(tab===t[0]?"on":"")+'" onclick="tab=\''+t[0]+'\';render()">'+t[1]+"</button>"}).join("");
  if(loading){v.innerHTML='<div class="card">Chargement des données…</div>';return}
  if(errMsg)h+='<p class="err">'+esc(errMsg)+"</p>";
@@ -245,7 +250,7 @@ function render(){
    }
    h+="</div>"});
   v.innerHTML=h;if(ren){var re=document.getElementById("rn"+ren);if(re){re.focus();re.select()}}return}
- if(!g){v.innerHTML=h+'<div class="card">Créez d’abord un groupe dans l’onglet « Groupes ».</div>';return}
+ if(!g){v.innerHTML=h+'<div class="card">'+(isAdm?'Créez d’abord un groupe dans l’onglet « Groupes ».':'Aucun groupe n’est encore créé : contactez un administrateur.')+'</div>';return}
  h+=gsel();
  if(tab==="bilan"){
   var n=sessions(g).length;
@@ -260,7 +265,7 @@ function render(){
  if(!ts.some(function(s){return s.id===sel.slot}))sel.slot=ts.length===1?ts[0].id:null;
  h+='<div class="card"><div class="row"><button class="btn g sm" onclick="shiftWk(-1)" aria-label="Semaine précédente">‹</button><div class="wk">Semaine '+isoWeek(w)+'<div class="mut">'+dm(w)+" – "+dm(addD(w,6))+" "+addD(w,6).getFullYear()+'</div></div><button class="btn g sm" onclick="shiftWk(1)" aria-label="Semaine suivante">›</button></div>';
  h+='<div class="row"><input type="date" value="'+sel.wk+'" onchange="goDate(this.value)"><button class="btn g sm" onclick="goDate(fmt(new Date()))">Aujourd’hui</button></div>';
- if(!ds.length)h+='<p class="mut">Ce groupe n’a pas de créneau : ajoutez-en dans l’onglet « Groupes ».</p>';
+ if(!ds.length)h+='<p class="mut">Ce groupe n’a pas de créneau'+(isAdm?' : ajoutez-en dans l’onglet « Groupes ».':' : contactez un administrateur.')+'</p>';
  else{h+='<div class="mut">Jour</div><div class="chips">'+ds.map(function(d){return '<button class="chip'+(d===sel.day?" on":"")+'" onclick="pick({day:'+d+',slot:null})">'+DAYS[d].slice(0,3)+" "+addD(w,d).getDate()+"</button>"}).join("")+"</div>";
   if(sel.day!==null)h+='<div class="mut">Horaire</div><div class="chips">'+ts.map(function(s){return '<button class="chip'+(s.id===sel.slot?" on":"")+'" onclick="pick({slot:\''+s.id+'\'})">'+s.start+" – "+s.end+"</button>"}).join("")+"</div>"}
  h+="</div>";
